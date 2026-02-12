@@ -1,33 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-// GET /api/events - List events
+// GET /api/events - List events (public)
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const { searchParams } = new URL(request.url);
-  const published = searchParams.get("published");
-  const upcoming = searchParams.get("upcoming");
+  try {
+    const supabase = createAdminClient();
+    const { searchParams } = new URL(request.url);
+    const published = searchParams.get("published");
+    const upcoming = searchParams.get("upcoming");
 
-  let query = supabase
-    .from("events")
-    .select("*")
-    .order("event_date", { ascending: true });
+    let query = supabase
+      .from("events")
+      .select("*")
+      .order("event_date", { ascending: true });
 
-  if (published === "true") {
-    query = query.eq("is_published", true);
+    if (published === "true") {
+      query = query.eq("is_published", true);
+    }
+
+    if (upcoming === "true") {
+      query = query.gte("event_date", new Date().toISOString());
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Supabase query error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error("Events API error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  if (upcoming === "true") {
-    query = query.gte("event_date", new Date().toISOString());
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json(data);
 }
 
 // POST /api/events - Create event (admin only)
