@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { sendCancellationEmail } from "@/lib/email";
 
 export async function POST(
@@ -60,7 +60,7 @@ export async function POST(
     reservation.stripe_payment_intent_id
   ) {
     try {
-      await stripe.refunds.create({
+      await getStripe().refunds.create({
         payment_intent: reservation.stripe_payment_intent_id,
       });
       refunded = true;
