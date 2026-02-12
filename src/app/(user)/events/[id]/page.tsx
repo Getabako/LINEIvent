@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { formatDate, formatPrice } from "@/lib/utils";
-import type { Event } from "@/types/database";
+import type { Event, TicketType } from "@/types/database";
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +20,7 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [reserving, setReserving] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
   const [remainingCapacity, setRemainingCapacity] = useState<number | null>(
     null
   );
@@ -31,6 +32,11 @@ export default function EventDetailPage() {
         if (res.ok) {
           const data = await res.json();
           setEvent(data);
+          // デフォルトで最初のチケット種別を選択
+          const tickets = data.ticket_types || [];
+          if (tickets.length > 0) {
+            setSelectedTicket(tickets[0]);
+          }
         }
       } catch (error) {
         console.error("Failed to load event:", error);
@@ -47,7 +53,9 @@ export default function EventDetailPage() {
       if (!event || event.capacity === 0) return;
 
       try {
-        const res = await fetch(`/api/reservations?event_id=${event.id}&count=true`);
+        const res = await fetch(
+          `/api/reservations?event_id=${event.id}&count=true`
+        );
         if (res.ok) {
           const { count } = await res.json();
           setRemainingCapacity(event.capacity - count);
@@ -60,6 +68,8 @@ export default function EventDetailPage() {
     loadCapacity();
   }, [event]);
 
+  const currentPrice = selectedTicket ? selectedTicket.price : event?.price ?? 0;
+
   async function handleReserve() {
     if (!isLoggedIn) {
       login();
@@ -70,12 +80,16 @@ export default function EventDetailPage() {
 
     setReserving(true);
     try {
-      if (event.price === 0) {
-        // Free event — create reservation directly
+      if (currentPrice === 0) {
+        // Free ticket — create reservation directly
         const res = await fetch("/api/reservations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ event_id: event.id }),
+          body: JSON.stringify({
+            event_id: event.id,
+            ticket_name: selectedTicket?.name,
+            amount: 0,
+          }),
         });
 
         if (!res.ok) {
@@ -85,11 +99,15 @@ export default function EventDetailPage() {
 
         router.push(`/checkout?event_id=${event.id}&status=success&free=true`);
       } else {
-        // Paid event — create Stripe Checkout
+        // Paid ticket — create Stripe Checkout
         const res = await fetch("/api/stripe/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ event_id: event.id }),
+          body: JSON.stringify({
+            event_id: event.id,
+            ticket_name: selectedTicket?.name,
+            amount: currentPrice,
+          }),
         });
 
         if (!res.ok) {
@@ -124,6 +142,8 @@ export default function EventDetailPage() {
   }
 
   const isSoldOut = remainingCapacity !== null && remainingCapacity <= 0;
+  const tickets: TicketType[] = event.ticket_types || [];
+  const hasTicketTypes = tickets.length > 0;
 
   return (
     <div className="space-y-6">
@@ -140,12 +160,7 @@ export default function EventDetailPage() {
 
       <div>
         <h1 className="text-2xl font-bold mb-2">{event.title}</h1>
-        <div className="flex gap-2 mb-4">
-          <Badge variant={event.price === 0 ? "secondary" : "default"}>
-            {event.price === 0 ? "無料" : formatPrice(event.price)}
-          </Badge>
-          {isSoldOut && <Badge variant="destructive">満席</Badge>}
-        </div>
+        {isSoldOut && <Badge variant="destructive">満席</Badge>}
       </div>
 
       <Card>
@@ -178,6 +193,33 @@ export default function EventDetailPage() {
         </CardContent>
       </Card>
 
+      {/* チケット種別選択 */}
+      {hasTicketTypes && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="font-bold mb-3">チケットを選択</p>
+            <div className="space-y-2">
+              {tickets.map((ticket, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedTicket(ticket)}
+                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-colors text-left ${
+                    selectedTicket?.name === ticket.name
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <span className="text-sm font-medium">{ticket.name}</span>
+                  <span className="text-sm font-bold">
+                    {ticket.price === 0 ? "無料" : formatPrice(ticket.price)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {event.description && (
         <div>
           <h2 className="font-bold mb-2">イベント詳細</h2>
@@ -189,7 +231,7 @@ export default function EventDetailPage() {
         <Button
           className="w-full h-12 text-lg"
           onClick={handleReserve}
-          disabled={reserving || isSoldOut}
+          disabled={reserving || isSoldOut || (hasTicketTypes && !selectedTicket)}
         >
           {!isLoggedIn
             ? "LINEログインして予約する"
@@ -197,9 +239,9 @@ export default function EventDetailPage() {
               ? "満席"
               : reserving
                 ? "処理中..."
-                : event.price === 0
+                : currentPrice === 0
                   ? "無料で予約する"
-                  : `${formatPrice(event.price)} で予約する`}
+                  : `${formatPrice(currentPrice)} で予約する`}
         </Button>
       </div>
     </div>

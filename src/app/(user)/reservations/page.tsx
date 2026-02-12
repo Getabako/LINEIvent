@@ -144,6 +144,11 @@ export default function ReservationsPage() {
               <p className="text-sm text-muted-foreground">
                 {reservation.events.venue}
               </p>
+              {reservation.ticket_name && (
+                <p className="text-sm font-medium">
+                  {reservation.ticket_name}
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 <Badge variant={statusVariant[reservation.status]}>
                   {statusLabels[reservation.status]}

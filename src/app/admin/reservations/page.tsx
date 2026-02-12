@@ -155,6 +155,7 @@ export default function AdminReservationsPage() {
             <TableRow>
               <TableHead>ユーザー</TableHead>
               <TableHead>イベント</TableHead>
+              <TableHead>チケット</TableHead>
               <TableHead>金額</TableHead>
               <TableHead>ステータス</TableHead>
               <TableHead>予約日</TableHead>
@@ -175,6 +176,9 @@ export default function AdminReservationsPage() {
                   </div>
                 </TableCell>
                 <TableCell>{reservation.events?.title || "-"}</TableCell>
+                <TableCell className="text-sm">
+                  {reservation.ticket_name || "-"}
+                </TableCell>
                 <TableCell>
                   {reservation.amount === 0
                     ? "無料"
@@ -217,7 +221,7 @@ export default function AdminReservationsPage() {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center text-muted-foreground py-8"
                 >
                   予約がありません

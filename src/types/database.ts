@@ -19,6 +19,11 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface TicketType {
+  name: string;
+  price: number;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -28,6 +33,7 @@ export interface Event {
   venue: string;
   price: number;
   capacity: number;
+  ticket_types: TicketType[];
   is_published: boolean;
   created_by: string;
   created_at: string;
@@ -38,6 +44,7 @@ export interface Reservation {
   id: string;
   user_id: string;
   event_id: string;
+  ticket_name: string | null;
   status: ReservationStatus;
   payment_status: PaymentStatus;
   stripe_session_id: string | null;

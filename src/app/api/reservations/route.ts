@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { event_id } = await request.json();
+  const { event_id, ticket_name, amount } = await request.json();
 
   // Fetch event
   const adminClient = createAdminClient();
@@ -120,19 +120,39 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Only for free events via this endpoint
-  if (event.price > 0) {
+  // Determine the actual amount (from ticket selection or event.price)
+  const resolvedAmount = typeof amount === "number" ? amount : event.price;
+
+  // Only for free tickets via this endpoint
+  if (resolvedAmount > 0) {
     return NextResponse.json(
-      { error: "有料イベントはStripe Checkoutを使用してください" },
+      { error: "有料チケットはStripe Checkoutを使用してください" },
       { status: 400 }
     );
   }
 
-  const { data, error } = await supabase
+  // Check duplicate reservation
+  const { data: existingReservation } = await adminClient
+    .from("reservations")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("event_id", event_id)
+    .in("status", ["pending", "confirmed", "checked_in"])
+    .single();
+
+  if (existingReservation) {
+    return NextResponse.json(
+      { error: "既にこのイベントに予約済みです" },
+      { status: 409 }
+    );
+  }
+
+  const { data, error } = await adminClient
     .from("reservations")
     .insert({
       user_id: user.id,
       event_id,
+      ticket_name: ticket_name || null,
       status: "confirmed",
       payment_status: "unpaid",
       amount: 0,

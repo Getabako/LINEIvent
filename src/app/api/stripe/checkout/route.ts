@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { event_id } = await request.json();
+  const { event_id, ticket_name, amount } = await request.json();
 
   const adminClient = createAdminClient();
 
@@ -39,9 +39,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (event.price <= 0) {
+  // Use the amount from ticket selection, fallback to event.price
+  const resolvedAmount = typeof amount === "number" ? amount : event.price;
+
+  if (resolvedAmount <= 0) {
     return NextResponse.json(
-      { error: "無料イベントです" },
+      { error: "無料チケットです" },
       { status: 400 }
     );
   }
@@ -84,9 +87,10 @@ export async function POST(request: NextRequest) {
     .insert({
       user_id: user.id,
       event_id,
+      ticket_name: ticket_name || null,
       status: "pending",
       payment_status: "unpaid",
-      amount: event.price,
+      amount: resolvedAmount,
     })
     .select()
     .single();
@@ -107,6 +111,10 @@ export async function POST(request: NextRequest) {
   // Create Stripe Checkout Session
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!;
 
+  const productName = ticket_name
+    ? `${event.title} - ${ticket_name}`
+    : event.title;
+
   const session = await getStripe().checkout.sessions.create({
     payment_method_types: ["card"],
     line_items: [
@@ -114,11 +122,11 @@ export async function POST(request: NextRequest) {
         price_data: {
           currency: "jpy",
           product_data: {
-            name: event.title,
+            name: productName,
             description: event.venue,
             ...(event.image_url ? { images: [event.image_url] } : {}),
           },
-          unit_amount: event.price,
+          unit_amount: resolvedAmount,
         },
         quantity: 1,
       },

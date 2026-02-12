@@ -54,14 +54,13 @@ export function LiffProvider({ children }: { children: ReactNode }) {
         } = await supabase.auth.getUser();
 
         if (user) {
-          // Load profile
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", user.id)
-            .single();
-          if (profileData) {
-            setProfile(profileData);
+          // Load profile via admin API to avoid RLS issues
+          const profileRes = await fetch(`/api/auth/profile?user_id=${user.id}`);
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData) {
+              setProfile(profileData);
+            }
           }
           setIsAuthenticating(false);
           return;
@@ -98,18 +97,17 @@ export function LiffProvider({ children }: { children: ReactNode }) {
           throw new Error("セッションの作成に失敗しました");
         }
 
-        // Load profile after session creation
+        // Load profile after session creation via admin API
         const {
           data: { user: newUser },
         } = await supabase.auth.getUser();
         if (newUser) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", newUser.id)
-            .single();
-          if (profileData) {
-            setProfile(profileData);
+          const profileRes = await fetch(`/api/auth/profile?user_id=${newUser.id}`);
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData) {
+              setProfile(profileData);
+            }
           }
         }
       } catch (err) {
