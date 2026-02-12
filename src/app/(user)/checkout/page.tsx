@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,35 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Suspense } from "react";
+import { buildGoogleCalendarUrl } from "@/lib/utils";
+import type { Event } from "@/types/database";
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
   const isFree = searchParams.get("free") === "true";
+  const eventId = searchParams.get("event_id");
+  const [event, setEvent] = useState<Event | null>(null);
+
+  useEffect(() => {
+    if (eventId && status === "success") {
+      fetch(`/api/events/${eventId}`)
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => setEvent(data))
+        .catch(() => {});
+    }
+  }, [eventId, status]);
 
   if (status === "success") {
+    const calendarUrl = event
+      ? buildGoogleCalendarUrl({
+          title: event.title,
+          date: event.event_date,
+          venue: event.venue,
+          description: event.description,
+        })
+      : null;
+
     return (
       <Card className="text-center">
         <CardHeader>
@@ -32,6 +55,13 @@ function CheckoutContent() {
               : "お支払いが完了し、予約が確定しました。確認メールをお送りしました。"}
           </p>
           <div className="flex flex-col gap-2">
+            {calendarUrl && (
+              <a href={calendarUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="w-full">
+                  Googleカレンダーに登録
+                </Button>
+              </a>
+            )}
             <Link href="/reservations">
               <Button className="w-full">マイ予約を確認する</Button>
             </Link>

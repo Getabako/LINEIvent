@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatDate, formatPrice } from "@/lib/utils";
+import { formatDate, formatPrice, buildGoogleCalendarUrl } from "@/lib/utils";
 import type { ReservationWithEvent } from "@/types/database";
 
 const statusLabels: Record<string, string> = {
@@ -161,16 +161,32 @@ export default function ReservationsPage() {
               </div>
               {(reservation.status === "confirmed" ||
                 reservation.status === "pending") && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleCancel(reservation.id)}
-                  disabled={cancellingId === reservation.id}
-                >
-                  {cancellingId === reservation.id
-                    ? "キャンセル中..."
-                    : "予約をキャンセル"}
-                </Button>
+                <div className="flex gap-2 flex-wrap">
+                  <a
+                    href={buildGoogleCalendarUrl({
+                      title: reservation.events.title,
+                      date: reservation.events.event_date,
+                      venue: reservation.events.venue,
+                      description: reservation.events.description,
+                    })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" size="sm">
+                      Googleカレンダーに登録
+                    </Button>
+                  </a>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleCancel(reservation.id)}
+                    disabled={cancellingId === reservation.id}
+                  >
+                    {cancellingId === reservation.id
+                      ? "キャンセル中..."
+                      : "予約をキャンセル"}
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
