@@ -1,5 +1,7 @@
 import { LiffProvider } from "@/components/liff-provider";
 
+export const dynamic = "force-dynamic";
+
 export default function UserLayout({
   children,
 }: {
