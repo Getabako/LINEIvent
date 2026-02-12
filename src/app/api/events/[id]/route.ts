@@ -1,25 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-// GET /api/events/[id]
+// GET /api/events/[id] (public)
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const supabase = await createClient();
+  try {
+    const { id } = await params;
+    const supabase = createAdminClient();
 
-  const { data, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("id", id)
-    .single();
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-  if (error || !data) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (error || !data) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error("Event detail API error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json(data);
 }
 
 // PUT /api/events/[id] (admin only)
