@@ -123,14 +123,6 @@ export async function POST(request: NextRequest) {
   // Determine the actual amount (from ticket selection or event.price)
   const resolvedAmount = typeof amount === "number" ? amount : event.price;
 
-  // Only for free tickets via this endpoint
-  if (resolvedAmount > 0) {
-    return NextResponse.json(
-      { error: "有料チケットはStripe Checkoutを使用してください" },
-      { status: 400 }
-    );
-  }
-
   // Check duplicate reservation
   const { data: existingReservation } = await adminClient
     .from("reservations")
@@ -154,8 +146,8 @@ export async function POST(request: NextRequest) {
       event_id,
       ticket_name: ticket_name || null,
       status: "confirmed",
-      payment_status: "unpaid",
-      amount: 0,
+      payment_status: resolvedAmount > 0 ? "paid" : "unpaid",
+      amount: resolvedAmount,
     })
     .select()
     .single();

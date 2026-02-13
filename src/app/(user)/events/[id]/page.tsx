@@ -155,24 +155,15 @@ export default function EventDetailPage() {
 
         router.push(`/checkout?event_id=${event.id}&status=success&free=true`);
       } else {
-        // Paid ticket — create Stripe Checkout
-        const res = await fetch("/api/stripe/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event_id: event.id,
-            ticket_name: selectedTicket?.name,
-            amount: currentPrice,
-          }),
+        // Paid ticket — fake payment processing page
+        const params = new URLSearchParams({
+          event_id: event.id,
+          amount: String(currentPrice),
         });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "決済の開始に失敗しました");
+        if (selectedTicket?.name) {
+          params.set("ticket_name", selectedTicket.name);
         }
-
-        const { url } = await res.json();
-        window.location.href = url;
+        router.push(`/checkout/processing?${params.toString()}`);
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラーが発生しました");

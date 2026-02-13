@@ -52,7 +52,7 @@ function CheckoutContent() {
           <p className="text-muted-foreground">
             {isFree
               ? "イベントへの予約が確定しました。"
-              : "お支払いが完了し、予約が確定しました。確認メールをお送りしました。"}
+              : "お支払いが完了し、予約が確定しました。"}
           </p>
           <div className="flex flex-col gap-2">
             {calendarUrl && (
