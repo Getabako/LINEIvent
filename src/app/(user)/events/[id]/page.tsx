@@ -24,6 +24,11 @@ export default function EventDetailPage() {
   const [remainingCapacity, setRemainingCapacity] = useState<number | null>(
     null
   );
+  const [existingReservation, setExistingReservation] = useState<{
+    id: string;
+    status: string;
+  } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     async function loadEvent() {
@@ -67,6 +72,57 @@ export default function EventDetailPage() {
 
     loadCapacity();
   }, [event]);
+
+  // Check if user already has an active reservation for this event
+  useEffect(() => {
+    async function checkExistingReservation() {
+      if (!isReady || !isLoggedIn || isAuthenticating || !event) return;
+      try {
+        const res = await fetch("/api/reservations");
+        if (res.ok) {
+          const reservations = await res.json();
+          const existing = reservations.find(
+            (r: { event_id: string; status: string; events?: { id: string } }) =>
+              (r.event_id === event.id || r.events?.id === event.id) &&
+              ["pending", "confirmed", "checked_in"].includes(r.status)
+          );
+          setExistingReservation(existing ? { id: existing.id, status: existing.status } : null);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    checkExistingReservation();
+  }, [isReady, isLoggedIn, isAuthenticating, event]);
+
+  async function handleCancel() {
+    if (!existingReservation) return;
+    if (!confirm("この予約をキャンセルしますか？")) return;
+
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/reservations/${existingReservation.id}/cancel`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "キャンセルに失敗しました");
+      }
+      setExistingReservation(null);
+      // Reload capacity
+      if (event && event.capacity > 0) {
+        const capRes = await fetch(`/api/reservations?event_id=${event.id}&count=true`);
+        if (capRes.ok) {
+          const { count } = await capRes.json();
+          setRemainingCapacity(event.capacity - count);
+        }
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   const currentPrice = selectedTicket ? selectedTicket.price : event?.price ?? 0;
 
@@ -227,22 +283,38 @@ export default function EventDetailPage() {
         </div>
       )}
 
-      <div className="sticky bottom-4">
-        <Button
-          className="w-full h-12 text-lg"
-          onClick={handleReserve}
-          disabled={reserving || isSoldOut || (hasTicketTypes && !selectedTicket)}
-        >
-          {!isLoggedIn
-            ? "LINEログインして予約する"
-            : isSoldOut
-              ? "満席"
-              : reserving
-                ? "処理中..."
-                : currentPrice === 0
-                  ? "無料で予約する"
-                  : `${formatPrice(currentPrice)} で予約する`}
-        </Button>
+      <div className="sticky bottom-4 space-y-2">
+        {existingReservation ? (
+          <>
+            <Badge variant="default" className="w-full justify-center py-2 text-base">
+              予約済み
+            </Badge>
+            <Button
+              variant="destructive"
+              className="w-full h-12 text-lg"
+              onClick={handleCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? "キャンセル中..." : "予約をキャンセル"}
+            </Button>
+          </>
+        ) : (
+          <Button
+            className="w-full h-12 text-lg"
+            onClick={handleReserve}
+            disabled={reserving || isSoldOut || (hasTicketTypes && !selectedTicket)}
+          >
+            {!isLoggedIn
+              ? "LINEログインして予約する"
+              : isSoldOut
+                ? "満席"
+                : reserving
+                  ? "処理中..."
+                  : currentPrice === 0
+                    ? "無料で予約する"
+                    : `${formatPrice(currentPrice)} で予約する`}
+          </Button>
+        )}
       </div>
     </div>
   );
